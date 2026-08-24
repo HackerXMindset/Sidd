@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Drive Triage</title>
+<style>
+:root{
+  --bg:#090d10;--panel:#15191e;--panel2:#101418;--line:#252b31;
+  --text:#e8eaed;--muted:#8d949d;--teal:#3bc8c5;--blue:#7898ed;
+  --amber:#ffb454;--pink:#f35f9a;--red:#ff695b;--green:#43d5a0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Roboto,system-ui,-apple-system,sans-serif}
+body{min-height:100vh}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.app{max-width:720px;margin:auto;padding:16px 12px 90px}
+.top{position:sticky;top:0;background:linear-gradient(var(--bg) 92%,transparent);z-index:20;padding-bottom:13px}
+.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{font-size:28px;font-weight:800;letter-spacing:-.8px}
+.reset{background:#15191e;border:1px solid #343b43;color:#9ca4ad;border-radius:10px;padding:8px 13px}
+.capacity{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:15px;margin-bottom:8px}
+.compact-capacity input{width:88px;background:#151a20;border:1px solid #343b43;border-radius:9px;color:var(--text);font-size:18px;padding:5px 8px;outline:none}
+.capacity input{width:135px;background:#151a20;border:1px solid #343b43;border-radius:10px;color:var(--text);font-size:20px;padding:7px 10px;outline:none}
+.tools{display:none}
+.searchRow{display:flex;gap:8px;margin-top:12px}
+.search{flex:1;min-width:0;background:#151a20;border:1px solid #343b43;color:var(--text);border-radius:12px;padding:12px 13px;font-size:16px;outline:none}
+.search:focus,.capacity input:focus,.modalbox input:focus,.modalbox textarea:focus,.modalbox select:focus{border-color:#59636e}
+.toolMenu{width:46px;border:1px solid #343b43;background:#171c21;color:#dfe3e7;border-radius:12px;font-size:24px;line-height:1}
+.toolPanel{display:none;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+.toolPanel.show{display:grid}
+.gaugeWrap{margin-top:4px}
+.gaugeScale{display:flex;justify-content:space-between;gap:8px;color:#737c86;font-size:10px;margin:0 3px 5px}
+.gaugeScale span:nth-child(2){color:#dfe3e7;font-weight:700}
+.gauge{height:34px;border-radius:18px;border:1px solid #30373e;overflow:hidden;display:flex;background:#171c21;position:relative}
+.seg{height:100%;flex:0 0 auto}
+.disk{background:var(--teal)}.anime{background:var(--blue)}.tv{background:var(--amber)}.movies{background:var(--pink)}
+.marker{position:absolute;top:0;bottom:0;width:3px;background:#fff;box-shadow:0 0 5px rgba(255,255,255,.95);z-index:2}
+.marker:after{content:"";position:absolute;top:-4px;left:-3px;width:7px;height:7px;border-radius:50%;background:#fff}
+.savedbar{display:flex;gap:9px;margin:0 0 12px}.savedbar button{flex:1;border:1px solid #343b43;background:#171c21;color:#dce0e4;border-radius:10px;padding:10px 12px;font-size:14px}
+.savedlist{display:none;margin:0 0 13px;background:#11161a;border:1px solid #2b333a;border-radius:14px;padding:9px}.savedlist.show{display:block}.saveditem{display:flex;align-items:center;gap:8px;padding:9px;border-bottom:1px solid #222a30}.saveditem:last-child{border-bottom:0}.saveditem .saveinfo{flex:1;min-width:0}.saveditem .savename{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.saveditem small{color:#838c96}.savedopen,.saveddelete{border:1px solid #343b43;background:#171c21;color:#cdd3da;border-radius:8px;padding:7px 9px}.saveddelete{color:#ff6b60;border-color:#633b37}
+.deleteBtn{width:34px;height:34px;border-radius:8px;background:transparent;border:1px solid #4d3432;color:#ff6b60;font-size:17px;flex:0 0 auto;cursor:pointer}
+.deleteBtn:active,.saveddelete:active,.savedopen:active,.savedbar button:active{transform:translateY(1px)}
+.saveStatus{font-size:12px;color:#55d9b4;min-height:17px;margin:5px 3px}
+@media(max-width:500px){.savedbar{flex-direction:column}.savedbar button{width:100%}}
+.actions{display:flex;gap:9px;margin-bottom:11px}
+.actionBtn{flex:1;background:#171c21;border:1px solid #343b43;color:#dfe3e7;border-radius:11px;padding:11px}
+.gauge{height:28px;border-radius:18px;border:1px solid #30373e;overflow:hidden;display:flex;background:#171c21;position:relative}
+.seg{height:100%;flex:0 0 auto}.disk{background:var(--teal)}.anime{background:var(--blue)}.tv{background:var(--amber)}.movies{background:var(--pink)}
+.marker{position:absolute;top:0;bottom:0;width:3px;background:#fff;box-shadow:0 0 4px #fff}
+.totals{display:flex;gap:7px;align-items:center;flex-wrap:wrap;color:#9ca3ad;font-size:16px;margin-top:10px}
+.totals .over{color:#ff725f;font-weight:800}.totals .under{color:var(--green);font-weight:800}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:#89929b;font-size:11px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.section{margin-top:15px;border:1px solid #292f35;border-radius:18px;overflow:hidden;background:var(--panel2)}
+.sectionhead{padding:15px 16px;display:flex;align-items:center;gap:10px;background:#171b20;cursor:pointer}
+.sectionhead .dot{width:13px;height:13px}
+.sectiontitle{font-size:18px;font-weight:750;flex:1}
+.count{font-size:13px;color:#858e98;text-align:right;white-space:nowrap}
+.chev{font-size:14px;color:#89919a}
+.quick{display:flex;gap:18px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+.keepall{color:var(--teal)}.cutall{color:var(--red)}.addmovie{color:var(--green)}
+.rows{display:none}.section.open .rows{display:block}
+.empty{padding:18px;color:#858e98;font-size:14px}
+.row{min-height:76px;border-bottom:1px solid #20262b;display:flex;align-items:center;gap:10px;padding:10px 14px}
+.row:last-child{border-bottom:0}
+.toggle{width:45px;height:45px;border-radius:50%;background:transparent;border:2px solid var(--red);color:var(--red);font-size:28px;line-height:1;flex:0 0 auto}
+.row.keep .toggle{border-color:var(--teal);color:var(--teal)}
+.info{min-width:0;flex:1}.name{font-size:17px;line-height:1.25}
+.meta{display:flex;gap:11px;flex-wrap:wrap;margin-top:5px;color:#9299a2;font-size:12px}
+.size{font-size:17px;font-weight:700;white-space:nowrap;min-width:68px;text-align:right}
+.ratio{color:#838c96}.searchmatch{background:#151c22}
+.note{color:#6f7780;font-size:12px;margin:15px 3px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.76);z-index:100;padding:14px;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}
+.modalbox{width:min(640px,100%);max-height:92vh;overflow:auto;background:#12171b;border:1px solid #30373e;border-radius:20px;padding:17px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modalhead{display:flex;align-items:center;justify-content:space-between;font-size:20px;margin-bottom:15px}
+.close{border:0;background:transparent;color:#9ca3ad;font-size:29px;line-height:1}
+.modalbox label{display:block;color:#9ba3ad;font-size:13px;margin:10px 0}
+.modalbox input,.modalbox select,.modalbox textarea{width:100%;margin-top:6px;background:#0d1216;border:1px solid #343b43;border-radius:9px;color:#e8eaed;padding:10px;outline:none}
+.modalbox textarea{min-height:120px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.modalactions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
+.primary,.secondary,.wide{border-radius:10px;padding:10px 13px}
+.primary{background:#203b39;border:1px solid #2f706d;color:#a9ffeb}
+.secondary{background:#171c21;border:1px solid #343b43;color:#dce0e4}
+.wide{width:100%;margin:8px 0}
+.modalhint{color:#8f98a1;font-size:13px;line-height:1.45;margin:0 0 12px}
+.status{font-size:13px;min-height:18px;margin-top:9px;color:#55d9b4}
+.status.error{color:var(--red)}
+.footerline{height:1px;background:#1d2329;margin-top:20px}
+@media(max-width:500px){
+  .app{padding-left:8px;padding-right:8px}
+  .brand{font-size:26px}
+  .capacity{font-size:17px}.capacity input{width:115px}
+  .searchRow{margin-top:10px}
+  .toolPanel{grid-template-columns:1fr 1fr}
+  .gauge{height:32px}
+  .gaugeScale{font-size:9px}
+  .row{padding-left:10px;padding-right:10px}
+  .size{font-size:16px;min-width:58px}
+  .name{font-size:16px}
+  .count{font-size:12px}
+  .formgrid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="head">
+      <div class="brand">Drive Triage</div>
+      <button class="reset" id="resetDecisions">Reset</button>
+    </div>
+
+    <div class="capacity compact-capacity">
+      <span>Drive</span>
+      <input id="capacity" type="number" min="1" step="1" value="1800">
+      <span>GB</span>
+    </div>
+
+    <div class="gaugeWrap">
+      <div class="gaugeScale">
+        <span>0 GB</span>
+        <span id="capacityMarkLabel">1,800 GB capacity</span>
+        <span id="gaugeMaxLabel">1,800 GB</span>
+      </div>
+      <div class="gauge" id="gauge"></div>
+    </div>
+
+    <div class="totals">
+      <span id="selectedGB">0 GB</span> selected ·
+      <span id="selectedEp">0 eps</span>
+      <span id="status"></span>
+    </div>
+
+    <div class="legend">
+      <span><i class="dot disk"></i>Already on Disk</span>
+      <span><i class="dot anime"></i>Anime</span>
+      <span><i class="dot tv"></i>TV</span>
+      <span><i class="dot movies"></i>Movies</span>
+    </div>
+
+    <div class="searchRow">
+      <input id="search" class="search" type="search" placeholder="Search titles..." autocomplete="off">
+      <button class="toolMenu" id="toolMenu" aria-label="Open tools">⋮</button>
+    </div>
+
+    <div class="toolPanel" id="toolPanel">
+      <button class="actionBtn" id="addNew">＋ Add title</button>
+      <button class="actionBtn" id="importList">⇩ AI Import</button>
+      <button class="actionBtn" id="importBackupBtn">⇧ Import JSON</button>
+      <button class="actionBtn" id="exportText">Export Text</button>
+      <button class="actionBtn" id="exportBackup">Export JSON</button>
+    </div>
+  </div>
+
+  <div id="sections"></div>
+  <div class="note">Tap − to cut a title. Tap + to restore it. Use 🗑 to permanently remove a title from the planner. Choices and added titles are saved automatically.</div>
+
+  <div class="modal" id="addModal">
+    <div class="modalbox">
+      <div class="modalhead"><b id="addModalTitle">Add title</b><button class="close" data-close="addModal">×</button></div>
+      <label>Name<input id="newName" placeholder="e.g. Breaking Bad"></label>
+      <label>Section
+        <select id="newSection">
+          <option value="disk">Already on Disk</option>
+          <option value="anime">Anime to Download</option>
+          <option value="tv">TV Shows to Download</option>
+          <option value="movies">Movies</option>
+        </select>
+      </label>
+      <div class="formgrid">
+        <label>GB<input id="newGB" type="number" step="0.1" min="0" placeholder="10"></label>
+        <label>Rating<input id="newRating" type="number" step="0.1" min="0" max="10" placeholder="8.5"></label>
+        <label>Episodes<input id="newEps" type="number" step="1" min="0" placeholder="24"></label>
+      </div>
+      <div class="modalactions">
+        <button class="secondary" data-close="addModal">Cancel</button>
+        <button class="primary" id="saveNew">Add</button>
+      </div>
+      <div class="status" id="addStatus"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="importModal">
+    <div class="modalbox">
+      <div class="modalhead"><b>Import with AI</b><button class="close" data-close="importModal">×</button></div>
+      <p class="modalhint">Paste a simple title list, copy the generated prompt into any AI, then paste the JSON result back here. The app validates it before saving.</p>
+      <textarea id="nameList" placeholder="One Piece
+Breaking Bad
+Frieren"></textarea>
+      <button class="secondary wide" id="copyPrompt">Copy AI prompt</button>
+      <textarea id="aiData" placeholder='Paste AI JSON here'></textarea>
+      <div class="modalactions">
+        <button class="secondary" data-close="importModal">Cancel</button>
+        <button class="primary" id="importData">Import data</button>
+      </div>
+      <div class="status" id="importStatus"></div>
+    </div>
+  </div>
+</div>
+  <div class="modal" id="backupImportModal">
+    <div class="modalbox">
+      <div class="modalhead"><b>Import Drive Triage JSON</b><button class="close" data-close="backupImportModal">×</button></div>
+      <p class="modalhint">Paste JSON exported by Drive Triage. This restores the titles, permanent IDs, cut decisions, capacity and saved state.</p>
+      <textarea id="backupData" placeholder='Paste drive-triage-backup.json here'></textarea>
+      <div class="modalactions"><button class="secondary" data-close="backupImportModal">Cancel</button><button class="primary" id="importBackup">Import JSON</button></div>
+      <div class="status" id="backupStatus"></div>
+    </div>
+  </div>
+
+<script>
+/*
+  Drive Triage
+  One source of truth:
+  state.items = [{ id, name, section, gb, rating, episodes, source }]
+  state.cutIds = Set of permanent item IDs.
+
+  IDs are never derived from title names. Legacy data is migrated once and
+  old name-based cut keys are translated to the new permanent IDs.
+*/
+
+const STORAGE = {
+  capacity: "drive-triage-capacity",
+  state: "drive-triage-state-v3",
+  legacyTitles: "drive-triage-titles-v2",
+  legacyCuts: "drive-triage-cuts-v2",
+  legacyCut: "drive-triage-cut",
+  legacyMovies: "drive-triage-movies",
+  legacyCustom: "drive-triage-custom"
+};
+
+const SECTIONS = [
+  {key:"disk", title:"Already on Disk", color:"disk"},
+  {key:"anime", title:"Anime to Download", color:"anime"},
+  {key:"tv", title:"TV Shows to Download", color:"tv"},
+  {key:"movies", title:"Movies", color:"movies"}
+];
+const SECTION_KEYS = new Set(SECTIONS.map(s => s.key));
+const SECTION_META = Object.fromEntries(SECTIONS.map(s => [s.key, s]));
+
+const seed = [
+  ["Attack on Titan",23,9.1,89,"disk"],["One Piece",235,9.0,1171,"disk"],["Hunter × Hunter",8,9.0,148,"disk"],
+  ["Arcane",4,9.0,18,"disk"],["Frieren",10,8.9,28,"disk"],["Death Note",4,8.9,37,"disk"],
+  ["Cowboy Bebop",4,8.9,26,"disk"],["Vinland Saga",5,8.8,48,"disk"],["Gintama",50,8.7,367,"disk"],
+  ["Peaky Blinders",23,8.7,36,"disk"],["Haikyuu!!",2,8.7,85,"disk"],["Fruits Basket",14,8.6,89,"disk"],
+  ["Demon Slayer",11,8.5,63,"disk"],["Jujutsu Kaisen",5,8.5,59,"disk"],["Kaguya-sama",6,8.5,37,"disk"],
+  ["The Quintessential Quintuplets",3,8.5,24,"disk"],["Naruto",92,8.4,220,"disk"],["Initial D",36,8.4,84,"disk"],
+  ["SPY × FAMILY",3,8.4,50,"disk"],["Monogatari",22,8.3,100,"disk"],["Mushoku Tensei",14,8.3,49,"disk"],
+  ["Black Clover",4,8.2,170,"disk"],["Bleach",42,8.2,366,"disk"],["Fate/Zero",42,8.2,25,"disk"],
+  ["My Hero Academia",13,8.2,170,"disk"],["Rascal Does Not Dream of Bunny Girl Senpai",3,8.2,13,"disk"],
+  ["Bakuman",8,8.1,75,"disk"],["Hyouka (1 GB)",1,8.1,22,"disk"],["Hyouka (3 GB)",3,8.1,22,"disk"],
+  ["KonoSuba",3,8.1,31,"disk"],["Re:Zero",3,8.1,66,"disk"],["Bungo Stray Dogs",7,8.0,61,"disk"],
+  ["The Fragrant Flower Blooms with Dignity",2,8.0,12,"disk"],["Horimiya",4,8.0,26,"disk"],
+  ["That Time I Got Reincarnated as a Slime",8,8.0,72,"disk"],["Fairy Tail",59,7.8,328,"disk"],
+  ["Soul Eater",7,7.8,51,"disk"],["Wotakoi",1,7.8,11,"disk"],["Noragami",8,7.8,25,"disk"],
+  ["Classroom of the Elite",2,7.7,38,"disk"],["Kakegurui",4,7.7,24,"disk"],["Komi Can't Communicate",4,7.7,24,"disk"],
+  ["Cells at Work!",5,7.6,34,"disk"],["Fire Force",9,7.6,48,"disk"],["Tomodachi Game",2,7.6,12,"disk"],
+  ["Drifters",4,7.5,12,"disk"],["The Devil Is a Part-Timer!",1,7.5,37,"disk"],
+  ["Yamada-kun and the Seven Witches",2,7.4,12,"disk"],["The Daily Life of the Immortal King",12,7.1,51,"disk"],
+  ["We Never Learn",2,7.2,24,"disk"],["Platinum End",5,6.5,24,"disk"],["Boruto",5,6.4,293,"disk"],
+  ["Movies",4,null,0,"disk"],
+
+  ["Attack on Titan",3.5,9.1,54,"anime"],["Hunter × Hunter",19,9.0,75,"anime"],["One Piece",37,9.0,150,"anime"],
+  ["Arcane",0,9.0,12,"anime"],["Frieren",3,8.9,12,"anime"],["Steins;Gate",12,8.8,48,"anime"],
+  ["Hajime no Ippo",32,8.8,127,"anime"],["Haikyuu",20,8.7,85,"anime"],["Slam Dunk",25,8.7,100,"anime"],
+  ["Fruits Basket",18,8.6,75,"anime"],["Demon Slayer",5,8.5,20,"anime"],["Jujutsu Kaisen",15,8.5,59,"anime"],
+  ["Kaguya-sama",3,8.5,12,"anime"],["Samurai Champloo",0,8.5,26,"anime"],["Mob Psycho",8,8.5,30,"anime"],
+  ["Dandadan",6,8.5,24,"anime"],["JoJo",50,8.5,191,"anime"],["Solo Leveling",6,8.5,24,"anime"],
+  ["Grand Blue",9,8.4,36,"anime"],["Bleach 168–366",50,8.3,200,"anime"],["Mushoku Tensei",3,8.3,12,"anime"],
+  ["Saiki K.",12,8.3,48,"anime"],["Kingdom",40,8.3,156,"anime"],["Oshi no Ko",6,8.3,24,"anime"],
+  ["Black Clover",50,8.2,150,"anime"],["My Hero Academia",25,8.2,100,"anime"],["Re:Zero",15,8.1,60,"anime"],
+  ["Dr. Stone",23,8.1,95,"anime"],["Slime",12,8.0,48,"anime"],["Tokyo Revengers",12,8.0,50,"anime"],
+  ["Sakamoto Days",6,7.8,22,"anime"],["Classroom of the Elite",6.5,7.7,26,"anime"],
+  ["Wistoria: Wand and Sword",3,7.3,12,"anime"],
+
+  ["Breaking Bad",74.4,9.5,62,"tv"],["The Wire",72,9.3,60,"tv"],["The Sopranos",103.2,9.2,86,"tv"],
+  ["Cosmos",15.6,9.3,13,"tv"],["Game of Thrones",87.6,9.2,73,"tv"],["Sherlock",15.6,9.0,13,"tv"],
+  ["Better Call Saul",75.6,9.0,63,"tv"],["Scam 1992",12,9.2,10,"tv"],["Dexter: Resurrection",12,9.0,10,"tv"],
+  ["True Detective",7.2,8.9,6,"tv"],["Succession",46.8,8.8,39,"tv"],["Dragon Ball",349.2,8.7,291,"tv"],
+  ["Narcos",36,8.7,30,"tv"],["Kota Factory",18,9.0,15,"tv"],["Dark",31.2,8.7,26,"tv"],
+  ["Dexter",115.2,8.6,96,"tv"],["A Knight of the Seven Kingdoms",7.2,8.3,6,"tv"],["Stranger Things",50.4,8.6,42,"tv"],
+  ["Mr. Robot",54,8.5,45,"tv"],["The Family Man",31.2,8.7,26,"tv"],["Mirzapur",34.8,8.4,29,"tv"],
+  ["The Pitt",36,8.9,30,"tv"],["From",36,8.0,30,"tv"],["Jack Ryan",38.4,8.0,32,"tv"],["Reacher",38.4,8.0,32,"tv"],
+  ["Daredevil",46.8,8.6,39,"tv"],["The Punisher",31.2,8.5,26,"tv"],["Shōgun",12,8.6,10,"tv"],
+  ["The Queen's Gambit",8.4,8.5,7,"tv"],["Prison Break",108,8.3,90,"tv"],["Yellowstone",63.6,8.6,53,"tv"],
+  ["The Boys",48,8.6,40,"tv"],["The Bear",45.6,8.5,38,"tv"],["The Mentalist",181.2,8.2,151,"tv"],
+  ["Lost",145.2,8.3,121,"tv"],["Supernatural",392.4,8.4,327,"tv"],["House of the Dragon",36,8.3,30,"tv"]
+];
+
+function safeJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const value = JSON.parse(raw);
+    return value ?? fallback;
+  } catch {
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
+function makePermanentId() {
+  if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return "item-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,12);
+}
+
+function validSection(section, fallback="anime") {
+  return SECTION_KEYS.has(section) ? section : fallback;
+}
+
+function validateItem(raw, fallbackSection="anime", options={}) {
+  const {allowMissingRating=true, requireEpisodes=true, strictSection=false} = options;
+  if (!raw || typeof raw !== "object") throw new Error("Item is not an object.");
+
+  const name = String(raw.name ?? "").trim();
+  if (!name) throw new Error("Every item needs a name.");
+
+  const rawSection = raw.section == null ? "" : String(raw.section).trim();
+  if (strictSection && !SECTION_KEYS.has(rawSection)) {
+    throw new Error(`Invalid section for “${name}”: ${raw.section ?? "(missing)"}. Use anime, tv, movies, or disk.`);
+  }
+  const section = validSection(rawSection, fallbackSection);
+  const gb = Number(raw.gb);
+  if (!Number.isFinite(gb) || gb < 0) throw new Error(`Invalid GB for “${name}”.`);
+
+  let rating = null;
+  if (raw.rating !== null && raw.rating !== undefined && raw.rating !== "") {
+    rating = Number(raw.rating);
+    if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
+      throw new Error(`Invalid rating for “${name}”.`);
+    }
+  } else if (!allowMissingRating) {
+    throw new Error(`Missing rating for “${name}”.`);
+  }
+
+  const episodes = Number(raw.episodes);
+  if (requireEpisodes && (!Number.isInteger(episodes) || episodes < 0)) {
+    throw new Error(`Invalid episode count for “${name}”.`);
+  }
+
+  return {
+    id: typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : makePermanentId(),
+    name,
+    section,
+    gb,
+    rating,
+    episodes: Number.isInteger(episodes) && episodes >= 0 ? episodes : 0,
+    source: raw.source || "custom"
+  };
+}
+
+function legacyArrayToObject(raw, fallbackSection, source) {
+  if (!Array.isArray(raw)) return null;
+  return validateItem({
+    name: raw[0], gb: raw[1], rating: raw[2] ?? null,
+    episodes: raw[3] ?? 0, section: raw[4] || fallbackSection
+  }, fallbackSection, {allowMissingRating:true});
+}
+
+function migrateState() {
+  const current = safeJSON(STORAGE.state, null);
+  if (current && Array.isArray(current.items)) {
+    const items = [];
+    const idMap = new Map();
+    for (const raw of current.items) {
+      try {
+        const item = validateItem(raw, raw.section || "anime");
+        const oldId = raw.id;
+        // Preserve an existing permanent ID. Only generate one for legacy rows
+        // that genuinely do not have an ID yet.
+        if (!oldId) item.id = makePermanentId();
+        items.push(item);
+        if (oldId) idMap.set(oldId, oldId);
+        else idMap.set(item.id, item.id);
+      } catch {}
+    }
+    const oldCuts = Array.isArray(current.cutIds) ? current.cutIds : [];
+    const cutIds = new Set(oldCuts.map(id => idMap.get(id)).filter(Boolean));
+    const state = {
+  savedLists: [],items, cutIds:[...cutIds]};
+    localStorage.setItem(STORAGE.state, JSON.stringify(state));
+    return state;
+  }
+
+  const items = [];
+  const oldIdentityToNew = new Map();
+  const push = (item, oldId=null) => {
+    if (!item) return;
+    const id = makePermanentId();
+    item.id = id;
+    items.push(item);
+    if (oldId) oldIdentityToNew.set(oldId, id);
+  };
+
+  const oldTitles = safeJSON(STORAGE.legacyTitles, null);
+  if (Array.isArray(oldTitles) && oldTitles.length) {
+    for (const raw of oldTitles) {
+      try {
+        const fallback = raw?.section || raw?.[4] || "anime";
+        const item = Array.isArray(raw)
+          ? legacyArrayToObject(raw, fallback, "migrated")
+          : validateItem(raw, fallback);
+        if (item) push(item, raw.id || null);
+      } catch {}
+    }
+  } else {
+    for (const raw of seed) {
+      try { push(legacyArrayToObject(raw, raw[4], "builtin")); } catch {}
+    }
+
+    const oldMovies = safeJSON(STORAGE.legacyMovies, []);
+    if (Array.isArray(oldMovies)) {
+      for (const raw of oldMovies) {
+        try { push(legacyArrayToObject(raw, "movies", "migrated")); } catch {}
+      }
+    }
+
+    const oldCustom = safeJSON(STORAGE.legacyCustom, []);
+    if (Array.isArray(oldCustom)) {
+      for (const raw of oldCustom) {
+        try {
+          const item = Array.isArray(raw)
+            ? legacyArrayToObject(raw, raw[4] || "tv", "migrated")
+            : validateItem(raw, raw.section || "tv");
+          push(item, raw.id || null);
+        } catch {}
+      }
+    }
+  }
+
+  // Translate old name-based cut keys into permanent IDs.
+  const legacyCuts = [
+    ...safeJSON(STORAGE.legacyCuts, []),
+    ...safeJSON(STORAGE.legacyCut, [])
+  ];
+  const cutIds = new Set();
+  const byLegacyIdentity = new Map();
+  for (const item of items) {
+    byLegacyIdentity.set(`${item.section}::${item.name}`, item.id);
+    byLegacyIdentity.set(`${item.section}::${item.name.toLowerCase()}`, item.id);
+  }
+  for (const oldCut of legacyCuts) {
+    if (oldIdentityToNew.has(oldCut)) cutIds.add(oldIdentityToNew.get(oldCut));
+    else {
+      const text = String(oldCut);
+      let match = byLegacyIdentity.get(text);
+      if (!match) {
+        const idx = text.indexOf("::");
+        if (idx >= 0) {
+          const section = text.slice(0, idx);
+          const name = text.slice(idx + 2);
+          match = byLegacyIdentity.get(`${section}::${name.toLowerCase()}`);
+        }
+      }
+      if (match) cutIds.add(match);
+    }
+  }
+
+  const migrated = {items, cutIds:[...cutIds]};
+  localStorage.setItem(STORAGE.state, JSON.stringify(migrated));
+  return migrated;
+}
+
+const migrated = migrateState();
+const state = {
+  capacity: Number(safeJSON(STORAGE.capacity, 1800)),
+  items: migrated.items,
+  cutIds: new Set(migrated.cutIds),
+  open: {disk:true, anime:false, tv:false, movies:false},
+  query: ""
+};
+if (!Number.isFinite(state.capacity) || state.capacity <= 0) state.capacity = 1800;
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE.state, JSON.stringify({
+      items: state.items,
+      cutIds: [...state.cutIds]
+    }));
+    localStorage.setItem(STORAGE.capacity, String(state.capacity));
+  } catch (e) {
+    console.error("Could not save Drive Triage state", e);
+  }
+}
+
+function itemsIn(section) { return state.items.filter(item => item.section === section); }
+function keptItems() { return state.items.filter(item => !state.cutIds.has(item.id)); }
+function totalGB(items) { return items.reduce((sum,item) => sum + item.gb, 0); }
+function totalEpisodes(items) { return items.reduce((sum,item) => sum + item.episodes, 0); }
+function ratio(item) {
+  if (item.rating === null || item.rating <= 0) return Infinity;
+  return item.gb / item.rating;
+}
+function displayGB(value) {
+  if (!Number.isFinite(value)) return "0";
+  return Number(value).toFixed(1).replace(/\.0$/," ").trim();
+}
+function safeText(value) { return String(value ?? ""); }
+
+function sortedVisibleItems(section) {
+  const query = state.query.trim().toLowerCase();
+  return itemsIn(section)
+    .filter(item => !query || item.name.toLowerCase().includes(query))
+    .sort((a,b) => {
+      const ra = ratio(a), rb = ratio(b);
+      if (ra !== rb) return rb - ra;
+      if (b.gb !== a.gb) return b.gb - a.gb;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function renderRow(item) {
+  const isCut = state.cutIds.has(item.id);
+  const row = document.createElement("div");
+  row.className = "row" + (isCut ? "" : " keep");
+
+  const toggle = document.createElement("button");
+  toggle.className = "toggle";
+  toggle.textContent = isCut ? "+" : "−";
+  toggle.setAttribute("aria-label", isCut ? `Restore ${item.name}` : `Cut ${item.name}`);
+  toggle.onclick = () => {
+    if (state.cutIds.has(item.id)) state.cutIds.delete(item.id);
+    else state.cutIds.add(item.id);
+    saveState();
+    render();
+  };
+
+  const info = document.createElement("div");
+  info.className = "info";
+  const name = document.createElement("div");
+  name.className = "name";
+  name.textContent = safeText(item.name);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const ep = document.createElement("span");
+  ep.textContent = item.episodes > 0 ? `${item.episodes.toLocaleString()} ep` : "Movie";
+  meta.appendChild(ep);
+
+  const rating = document.createElement("span");
+  rating.textContent = item.rating === null ? "⭐ N/A" : `⭐ ${item.rating.toFixed(1)}`;
+  meta.appendChild(rating);
+
+  if (item.rating !== null && item.rating > 0) {
+    const value = document.createElement("span");
+    value.className = "ratio";
+    value.textContent = `${displayGB(ratio(item))} GB/pt`;
+    meta.appendChild(value);
+  }
+
+  info.append(name, meta);
+
+  const size = document.createElement("div");
+  size.className = "size";
+  size.textContent = `${displayGB(item.gb)} GB`;
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "delete-btn";
+  deleteBtn.type = "button";
+  deleteBtn.textContent = "🗑";
+  deleteBtn.title = "Permanently remove from planner";
+  deleteBtn.setAttribute("aria-label", `Permanently remove ${item.name} from planner`);
+  deleteBtn.onclick = () => {
+    const confirmed = window.confirm(
+      `Permanently remove “${item.name}” from this planner?\n\n` +
+      `This removes the title from the list and saved data. It does NOT delete any file from your hard drive.`
+    );
+    if (!confirmed) return;
+
+    state.items = state.items.filter(existing => existing.id !== item.id);
+    state.cutIds.delete(item.id);
+    saveState();
+    render();
+  };
+
+  row.append(toggle, info, size, deleteBtn);
+  return row;
+}
+
+function render() {
+  const root = document.getElementById("sections");
+  root.replaceChildren();
+  const queryActive = !!state.query.trim();
+
+  for (const meta of SECTIONS) {
+    const all = itemsIn(meta.key);
+    const kept = all.filter(item => !state.cutIds.has(item.id));
+    const visible = sortedVisibleItems(meta.key);
+    const open = queryActive ? visible.length > 0 : !!state.open[meta.key];
+
+    const section = document.createElement("section");
+    section.className = "section" + (open ? " open" : "");
+
+    const head = document.createElement("div");
+    head.className = "sectionhead";
+    const dot = document.createElement("i");
+    dot.className = `dot ${meta.color}`;
+    const title = document.createElement("div");
+    title.className = "sectiontitle";
+    title.textContent = meta.title;
+    const count = document.createElement("div");
+    count.className = "count";
+    count.textContent = `${displayGB(totalGB(kept))}/${displayGB(totalGB(all))} GB · ${kept.length}/${all.length}`;
+    const chev = document.createElement("div");
+    chev.className = "chev";
+    chev.textContent = "⌄";
+    head.append(dot,title,count,chev);
+
+    const quick = document.createElement("div");
+    quick.className = "quick";
+    const keepAll = document.createElement("span");
+    keepAll.className = "keepall";
+    keepAll.textContent = "Keep all";
+    const cutAll = document.createElement("span");
+    cutAll.className = "cutall";
+    cutAll.textContent = "Cut all";
+    const add = document.createElement("span");
+    add.className = "addmovie";
+    add.textContent = `＋ ${meta.key === "movies" ? "Add movie" : "Add title"}`;
+    quick.append(keepAll,cutAll,add);
+
+    const rows = document.createElement("div");
+    rows.className = "rows";
+    if (!visible.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = queryActive ? "No matching titles." : "No titles in this section.";
+      rows.appendChild(empty);
+    } else {
+      for (const item of visible) rows.appendChild(renderRow(item));
+    }
+
+    section.append(head,quick,rows);
+
+    head.onclick = () => {
+      if (!queryActive) {
+        state.open[meta.key] = !state.open[meta.key];
+        render();
+      }
+    };
+    keepAll.onclick = e => {
+      e.stopPropagation();
+      for (const item of all) state.cutIds.delete(item.id);
+      saveState(); render();
+    };
+    cutAll.onclick = e => {
+      e.stopPropagation();
+      for (const item of all) state.cutIds.add(item.id);
+      saveState(); render();
+    };
+    add.onclick = e => {
+      e.stopPropagation();
+      resetAddForm();
+      document.getElementById("newSection").value = meta.key;
+      openModal("addModal");
+    };
+
+    root.appendChild(section);
+  }
+
+  updateSummaryAndGauge();
+}
+
+function updateSummaryAndGauge() {
+  const kept = keptItems();
+  const selectedGB = totalGB(kept);
+  const selectedEp = totalEpisodes(kept);
+  const diff = selectedGB - state.capacity;
+
+  document.getElementById("selectedGB").textContent = `${displayGB(selectedGB)} GB`;
+  document.getElementById("selectedEp").textContent = `${selectedEp.toLocaleString()} eps`;
+  const status = document.getElementById("status");
+  status.className = diff > 0 ? "over" : "under";
+  status.textContent = diff > 0 ? `${displayGB(diff)} GB over` : `${displayGB(Math.abs(diff))} GB free`;
+
+  const categoryGB = Object.fromEntries(SECTIONS.map(s => [s.key,0]));
+  for (const item of kept) categoryGB[item.section] += item.gb;
+
+  const gauge = document.getElementById("gauge");
+  gauge.replaceChildren();
+
+  // The bar represents the actual selected storage. When over capacity,
+  // the capacity marker moves inside the bar instead of making the bar
+  // look "full" when it is actually several times over.
+  const scaleMax = Math.max(state.capacity, selectedGB, 1);
+  for (const meta of SECTIONS) {
+    const segment = document.createElement("i");
+    segment.className = `seg ${meta.color}`;
+    segment.style.width = `${Math.max(0, categoryGB[meta.key] / scaleMax * 100)}%`;
+    gauge.appendChild(segment);
+  }
+
+  const marker = document.createElement("i");
+  marker.className = "marker";
+  marker.style.left = `${Math.min(100, state.capacity / scaleMax * 100)}%`;
+  gauge.appendChild(marker);
+
+  document.getElementById("capacityMarkLabel").textContent =
+    `${Number(state.capacity).toLocaleString()} GB capacity`;
+  document.getElementById("gaugeMaxLabel").textContent =
+    `${Number(scaleMax).toLocaleString()} GB`;
+}
+
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function resetAddForm() {
+  document.getElementById("newName").value = "";
+  document.getElementById("newGB").value = "";
+  document.getElementById("newRating").value = "";
+  document.getElementById("newEps").value = "";
+  document.getElementById("addStatus").textContent = "";
+}
+
+function addItem(raw) {
+  const item = validateItem(raw, raw.section || "anime", {allowMissingRating:true, requireEpisodes:true});
+  state.items.push(item);
+  return item;
+}
+
+document.querySelectorAll("[data-close]").forEach(btn => {
+  btn.onclick = () => closeModal(btn.dataset.close);
+});
+document.querySelectorAll(".modal").forEach(modal => {
+  modal.onclick = e => { if (e.target === modal) closeModal(modal.id); };
+});
+
+const capacityInput = document.getElementById("capacity");
+capacityInput.value = state.capacity;
+capacityInput.oninput = () => {
+  const value = Number(capacityInput.value);
+  if (!Number.isFinite(value) || value <= 0) return;
+  state.capacity = value;
+  saveState();
+  updateSummaryAndGauge();
+};
+capacityInput.onblur = () => {
+  const value = Number(capacityInput.value);
+  if (!Number.isFinite(value) || value <= 0) {
+    state.capacity = 1800;
+    capacityInput.value = state.capacity;
+    saveState();
+    updateSummaryAndGauge();
+  }
+};
+
+// Correct button ID. The previous build referenced #reset by mistake.
+document.getElementById("resetDecisions").onclick = () => {
+  state.cutIds.clear();
+  saveState();
+  render();
+};
+
+document.getElementById("search").oninput = e => {
+  state.query = e.target.value;
+  render();
+};
+
+document.getElementById("toolMenu").onclick = () => {
+  document.getElementById("toolPanel").classList.toggle("show");
+};
+
+document.getElementById("addNew").onclick = () => {
+  resetAddForm();
+  document.getElementById("newSection").value = "anime";
+  openModal("addModal");
+};
+
+document.getElementById("saveNew").onclick = () => {
+  const name = document.getElementById("newName").value.trim();
+  const section = document.getElementById("newSection").value;
+  const gbRaw = document.getElementById("newGB").value;
+  const ratingRaw = document.getElementById("newRating").value;
+  const epsRaw = document.getElementById("newEps").value;
+
+  try {
+    if (!name) throw new Error("Enter a title.");
+    if (gbRaw === "") throw new Error("Enter a GB value.");
+    if (epsRaw === "") throw new Error("Enter an episode count. Use 0 for a movie.");
+    const item = addItem({
+      name, section,
+      gb: Number(gbRaw),
+      rating: ratingRaw === "" ? null : Number(ratingRaw),
+      episodes: Number(epsRaw),
+      source:"manual"
+    });
+    saveState();
+    closeModal("addModal");
+    state.open[section] = true;
+    render();
+  } catch (error) {
+    const status = document.getElementById("addStatus");
+    status.className = "status error";
+    status.textContent = error.message;
+  }
+};
+
+function aiPrompt() {
+  const names = document.getElementById("nameList").value.trim() || "[PASTE TITLES HERE]";
+  return `You convert a media title list into JSON for Drive Triage.\n\nReturn ONLY valid JSON. No markdown fences and no explanation.\n\nINPUT:\n${names}\n\nFor every title return:\n- name: canonical title\n- section: "anime", "tv", or "movies"\n- gb: estimated size in GB for the complete listed content\n- rating: rating out of 10, preferably IMDb\n- episodes: number of episodes represented; use 0 for movies\n\nUse this exact shape:\n[\n  {"name":"One Piece","section":"anime","gb":235,"rating":9.0,"episodes":1171}\n]\n\nRules:\n- Numbers only for gb, rating and episodes.\n- For movies, episodes must be 0.\n- Preserve explicit episode ranges/seasons by putting the represented episode count in episodes.\n- Do not duplicate a title.\n- Do not add commentary outside the JSON.`;
+}
+
+document.getElementById("importList").onclick = () => {
+  document.getElementById("nameList").value = "";
+  document.getElementById("aiData").value = "";
+  const status = document.getElementById("importStatus");
+  status.className = "status";
+  status.textContent = "";
+  openModal("importModal");
+};
+
+document.getElementById("copyPrompt").onclick = async () => {
+  const text = aiPrompt();
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  const btn = document.getElementById("copyPrompt");
+  const old = btn.textContent;
+  btn.textContent = "Copied";
+  setTimeout(() => btn.textContent = old, 1200);
+};
+
+document.getElementById("importData").onclick = () => {
+  const status = document.getElementById("importStatus");
+  status.className = "status";
+  let raw = document.getElementById("aiData").value.trim();
+  raw = raw.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"").trim();
+
+  try {
+    const parsed = JSON.parse(raw);
+    const arr = Array.isArray(parsed) ? parsed : parsed?.items;
+    if (!Array.isArray(arr) || !arr.length) throw new Error("No items found in the JSON.");
+
+    // Validate the entire import before changing state. One bad row cannot
+    // leave half an import saved.
+    const validated = arr.map((item, index) => {
+      try {
+        return validateItem(item, "anime", {
+          allowMissingRating:false,
+          requireEpisodes:true,
+          strictSection:true
+        });
+      } catch (error) {
+        throw new Error(`Item ${index + 1}: ${error.message}`);
+      }
+    });
+
+    for (const item of validated) {
+      item.id = makePermanentId();
+      item.source = "import";
+      state.items.push(item);
+    }
+
+    saveState();
+    render();
+    status.className = "status";
+    status.textContent = `Imported ${validated.length} title${validated.length === 1 ? "" : "s"}.`;
+  } catch (error) {
+    status.className = "status error";
+    status.textContent = error.message || "Invalid JSON. Paste valid AI output.";
+  }
+};
+
+function buildBackup() {
+  return {
+    format:"drive-triage-backup",
+    version:1,
+    exportedAt:new Date().toISOString(),
+    capacity:state.capacity,
+    items:state.items.map(normalizeItem),
+    cutIds:[...state.cutIds]
+  };
+}
+
+function exportBackup() {
+  const text=JSON.stringify(buildBackup(),null,2);
+  const blob=new Blob([text],{type:"application/json;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="drive-triage-backup.json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+function exportText() {
+  const lines=[];
+  lines.push("DRIVE TRIAGE");
+  lines.push(`Drive capacity: ${displayGB(state.capacity)} GB`);
+  lines.push("");
+  let keepGB=0,cutGB=0,keepEp=0,cutEp=0;
+  for (const meta of SECTIONS) {
+    const all=itemsIn(meta.key);
+    const keep=all.filter(item=>!state.cutIds.has(item.id));
+    const removed=all.filter(item=>state.cutIds.has(item.id));
+    keepGB+=totalGB(keep);cutGB+=totalGB(removed);keepEp+=totalEpisodes(keep);cutEp+=totalEpisodes(removed);
+    lines.push(`=== ${meta.title.toUpperCase()} ===`);
+    lines.push("KEEP:");
+    if(!keep.length) lines.push("- None"); else keep.forEach(item=>lines.push(formatExportItem(item)));
+    lines.push("");
+    lines.push("CUT:");
+    if(!removed.length) lines.push("- None"); else removed.forEach(item=>lines.push(formatExportItem(item)));
+    lines.push("");
+  }
+  lines.push("=== SUMMARY ===");
+  lines.push(`KEEP: ${displayGB(keepGB)} GB | ${keepEp.toLocaleString()} ep`);
+  lines.push(`CUT: ${displayGB(cutGB)} GB | ${cutEp.toLocaleString()} ep`);
+  lines.push(`TOTAL: ${displayGB(keepGB+cutGB)} GB | ${(keepEp+cutEp).toLocaleString()} ep`);
+  const diff=state.capacity-keepGB;
+  lines.push(diff>=0?`AFTER CUTS: ${displayGB(diff)} GB free`:`AFTER CUTS: ${displayGB(Math.abs(diff))} GB over`);
+  downloadText(lines.join("\n"));
+}
+
+function importBackup() {
+  const status=document.getElementById("backupStatus");
+  status.className="status";status.textContent="";
+  let raw=document.getElementById("backupData").value.trim();
+  raw=raw.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"").trim();
+  try {
+    const data=JSON.parse(raw);
+    if(!data || data.format!=="drive-triage-backup" || data.version!==1) throw new Error("This is not a valid Drive Triage backup.");
+    if(!Array.isArray(data.items) || !Array.isArray(data.cutIds)) throw new Error("Backup is missing items or cutIds.");
+    const seen=new Set();
+    const items=data.items.map((rawItem,i)=>{
+      if(!rawItem || typeof rawItem!=="object") throw new Error(`Item ${i+1} is invalid.`);
+      if(!rawItem.id || typeof rawItem.id!=="string") throw new Error(`Item ${i+1} is missing its permanent ID.`);
+      if(seen.has(rawItem.id)) throw new Error(`Duplicate ID in backup: ${rawItem.id}`);
+      seen.add(rawItem.id);
+      return validateItem(rawItem,rawItem.section,{allowMissingRating:true,requireEpisodes:true,strictSection:true});
+    });
+    const cap=Number(data.capacity);
+    if(!Number.isFinite(cap)||cap<=0) throw new Error("Backup has an invalid drive capacity.");
+    const idSet=new Set(items.map(x=>x.id));
+    for(const id of data.cutIds) if(typeof id!=="string") throw new Error("Backup contains an invalid cut ID.");
+    state.items=items;
+    state.cutIds=new Set(data.cutIds.filter(id=>idSet.has(id)));
+    state.capacity=cap;
+    saveState();
+    document.getElementById("capacity").value=cap;
+    closeModal("backupImportModal");
+    render();
+  } catch(error) {
+    status.className="status error";
+    status.textContent=error.message||"Invalid backup JSON.";
+  }
+}
+
+function formatExportItem(item) {
+  const rating=item.rating===null?"N/A":item.rating.toFixed(1);
+  const episodes=item.episodes>0?`${item.episodes} ep`:"Movie";
+  return `- ${item.name} | ${displayGB(item.gb)} GB | ${rating} | ${episodes}`;
+}
+
+function downloadText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(()=>flashButton("exportText","Copied"),()=>downloadTextFile(text));
+  } else downloadTextFile(text);
+}
+function downloadTextFile(text) {
+  const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="drive-triage-final-list.txt";a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function flashButton(id,text){const btn=document.getElementById(id);if(!btn)return;const old=btn.textContent;btn.textContent=text;setTimeout(()=>btn.textContent=old,1400)}
+
+
+document.getElementById("exportText").onclick = exportText;
+document.getElementById("exportBackup").onclick = exportBackup;
+document.getElementById("importBackupBtn").onclick = () => { document.getElementById("backupData").value=""; document.getElementById("backupStatus").textContent=""; openModal("backupImportModal"); };
+document.getElementById("importBackup").onclick = importBackup;
+
+render();
+renderSavedLists();
+</script>
+</body>
+</html>
